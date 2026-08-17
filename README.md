@@ -4,8 +4,7 @@
 
 ## Screenshot
 
-Add the main interface screenshot later at the reserved path below; the README
-will display it automatically.
+
 
 ![Controller UI](docs/screenshots/controller-ui.jpg)
 

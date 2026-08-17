@@ -12,12 +12,21 @@ enum VitaNsTouchButton {
 	VITA_NS_TOUCH_ZR      = 1U << 5,
 	VITA_NS_TOUCH_SWAP_LEFT  = 1U << 6,
 	VITA_NS_TOUCH_SWAP_RIGHT = 1U << 7,
+	VITA_NS_TOUCH_BACK_LEFT  = 1U << 8,
+	VITA_NS_TOUCH_BACK_RIGHT = 1U << 9,
+	VITA_NS_TOUCH_BACK_LEFT_ZL  = 1U << 10,
+	VITA_NS_TOUCH_BACK_RIGHT_ZR = 1U << 11,
 };
 
 #define VITA_NS_TOUCH_ZONE_COUNT 6
-#define VITA_NS_TOUCH_BUTTON_MASK ((1U << VITA_NS_TOUCH_ZONE_COUNT) - 1U)
+#define VITA_NS_TOUCH_FRONT_BUTTON_MASK ((1U << VITA_NS_TOUCH_ZONE_COUNT) - 1U)
+#define VITA_NS_TOUCH_BACK_BUTTON_MASK \
+	(VITA_NS_TOUCH_BACK_LEFT | VITA_NS_TOUCH_BACK_RIGHT)
+#define VITA_NS_TOUCH_BUTTON_MASK \
+	(VITA_NS_TOUCH_FRONT_BUTTON_MASK | VITA_NS_TOUCH_BACK_BUTTON_MASK)
 #define VITA_NS_TOUCH_OPTION_MASK \
-	(VITA_NS_TOUCH_SWAP_LEFT | VITA_NS_TOUCH_SWAP_RIGHT)
+	(VITA_NS_TOUCH_SWAP_LEFT | VITA_NS_TOUCH_SWAP_RIGHT | \
+	 VITA_NS_TOUCH_BACK_LEFT_ZL | VITA_NS_TOUCH_BACK_RIGHT_ZR)
 #define VITA_NS_TOUCH_INPUT_MASK \
 	(VITA_NS_TOUCH_BUTTON_MASK | VITA_NS_TOUCH_OPTION_MASK)
 #define VITA_NS_TOUCH_PANEL_WIDTH 1920
@@ -47,7 +56,7 @@ enum VitaNsTouchLayout {
 /* The front panel uses 1920x1088 coordinates.  In its lower half, the outer
  * columns are split vertically for the trigger/stick buttons.  The two full-
  * height center columns keep Capture to the left of Home. */
-static inline uint8_t vita_ns_touch_button_for_layout(int x, int y,
+static inline uint16_t vita_ns_touch_button_for_layout(int x, int y,
 	int layout)
 {
 	if (x < 0 || x >= VITA_NS_TOUCH_PANEL_WIDTH || y < 0 ||
@@ -91,10 +100,22 @@ static inline uint8_t vita_ns_touch_button_for_layout(int x, int y,
 		VITA_NS_TOUCH_ZR : VITA_NS_TOUCH_R3;
 }
 
-static inline uint8_t vita_ns_touch_button(int x, int y)
+static inline uint16_t vita_ns_touch_button(int x, int y)
 {
 	return vita_ns_touch_button_for_layout(x, y,
 		VITA_NS_TOUCH_LAYOUT_INFO);
+}
+
+/* The rear panel is split into two equal-width trigger zones.  Its reports
+ * use the same coordinate range as the front panel, but are sampled through a
+ * separate touch port. */
+static inline uint16_t vita_ns_back_touch_button(int x, int y)
+{
+	if (x < 0 || x >= VITA_NS_TOUCH_PANEL_WIDTH || y < 0 ||
+	    y >= VITA_NS_TOUCH_PANEL_HEIGHT)
+		return 0;
+	return x < VITA_NS_TOUCH_PANEL_WIDTH / 2 ?
+		VITA_NS_TOUCH_BACK_LEFT : VITA_NS_TOUCH_BACK_RIGHT;
 }
 
 #endif

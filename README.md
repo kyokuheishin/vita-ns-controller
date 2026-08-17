@@ -32,8 +32,9 @@ Bluetooth hardware; no Linux relay and no modified Switch are required.
 - Initial registration through the Switch **Change Grip/Order** screen.
 - Input-triggered reconnect from a normal Switch system or game screen.
 - Physical buttons, D-pad, both sticks, shoulder buttons, Plus and Minus.
-- Touch controls for ZL, ZR, L3, R3, Capture, and Home.
-- Independent L/ZL and R/ZR mapping options.
+- Front-touch controls for ZL, ZR, L3, R3, Capture, and Home.
+- Rear-touch left and right zones, independently selectable as L/ZL and R/ZR.
+- Independent front and rear L/ZL and R/ZR mapping options.
 - The Vita application must remain in the foreground.
 - Motion/gyroscope forwarding is not currently enabled.
 - Hardware-tested on a PS Vita running 3.60 and a Nintendo Switch 2.
@@ -92,10 +93,12 @@ longer valid, repeat the first-registration procedure.
 | Left and right analog sticks | Left and right sticks |
 | L / R | L / R |
 | Select / Start | Minus / Plus |
-| Touch zones | ZL, ZR, L3, R3, Capture, Home |
+| Front touch zones | ZL, ZR, L3, R3, Capture, Home |
+| Rear touch zones | Left/right mapped independently to L/ZL and R/ZR |
 
-Use **FULL CONTROLS** for the large touch layout. In **SETTINGS**, L/ZL and
-R/ZR can be swapped independently; the UI labels follow the selected mapping.
+Use **FULL CONTROLS** for the large front-touch layout. In **SETTINGS**, the
+front L/ZL and R/ZR swaps and the rear-left/rear-right mappings can be selected
+independently; the UI labels follow the selected mapping.
 Hold **Select + Start** for two seconds to exit.
 
 ### Building
@@ -151,8 +154,9 @@ Nintendo Switch 手柄，不需要 Linux 中继，也不要求破解 Switch。
 - 可在 Switch 的“更改握法/顺序”页面完成首次登记。
 - 登记后可在 Switch 普通系统或游戏画面通过 Vita 输入触发重连。
 - 转发实体按键、方向键、双摇杆、肩键、Plus 和 Minus。
-- 通过触屏提供 ZL、ZR、L3、R3、截图键和 HOME 键。
-- L/ZL 与 R/ZR 可分别交换映射。
+- 通过正面触屏提供 ZL、ZR、L3、R3、截图键和 HOME 键。
+- 背部触摸板左右区域可分别映射为 L/ZL 和 R/ZR。
+- 正面和背部的 L/ZL、R/ZR 映射均可独立设置。
 - Vita 应用必须保持在前台。
 - 当前没有启用陀螺仪/体感数据转发。
 - 已在 3.60 系统的 PS Vita 与 Nintendo Switch 2 上完成实机验证。
@@ -208,10 +212,12 @@ Switch 或 Switch 2。
 | 左右摇杆 | 左右摇杆 |
 | L / R | L / R |
 | Select / Start | Minus / Plus |
-| 触屏区域 | ZL、ZR、L3、R3、截图、HOME |
+| 正面触屏区域 | ZL、ZR、L3、R3、截图、HOME |
+| 背部触摸区域 | 左侧独立映射 L/ZL，右侧独立映射 R/ZR |
 
-点击 **FULL CONTROLS** 可切换到大面积触摸布局。在 **SETTINGS** 中可以分别
-交换 L/ZL 和 R/ZR，界面标签会同步变化。长按 **Select + Start** 两秒退出。
+点击 **FULL CONTROLS** 可切换到大面积正面触摸布局。在 **SETTINGS** 中可以
+分别设置正面 L/ZL、R/ZR 交换，以及背部左右区域映射，界面标签会同步变化。
+长按 **Select + Start** 两秒退出。
 
 ### 构建
 
@@ -269,8 +275,9 @@ Bluetooth コントローラーとして動作させます。Vita 内蔵 Bluetoo
 - Switch の「持ちかた/順番を変える」画面から初回登録できます。
 - 登録後は、通常のシステム画面やゲーム画面から Vita の入力で再接続できます。
 - 物理ボタン、方向キー、左右スティック、ショルダーボタン、Plus、Minus に対応。
-- タッチ操作で ZL、ZR、L3、R3、キャプチャー、HOME を入力できます。
-- L/ZL と R/ZR の割り当てを個別に入れ替えられます。
+- 前面タッチで ZL、ZR、L3、R3、キャプチャー、HOME を入力できます。
+- 背面タッチパッドの左右を、それぞれ L/ZL と R/ZR に割り当てられます。
+- 前面と背面の L/ZL、R/ZR 割り当てを個別に設定できます。
 - Vita アプリをフォアグラウンドで実行しておく必要があります。
 - モーション/ジャイロ転送は現在無効です。
 - システムソフトウェア 3.60 の PS Vita と Nintendo Switch 2 で実機確認済みです。
@@ -330,11 +337,13 @@ VitaShell、Nintendo Switch または Switch 2。
 | 左右アナログスティック | 左右スティック |
 | L / R | L / R |
 | Select / Start | Minus / Plus |
-| タッチ領域 | ZL、ZR、L3、R3、キャプチャー、HOME |
+| 前面タッチ領域 | ZL、ZR、L3、R3、キャプチャー、HOME |
+| 背面タッチ領域 | 左側を L/ZL、右側を R/ZR に個別割り当て |
 
-**FULL CONTROLS** で大きなタッチレイアウトへ切り替えられます。
-**SETTINGS** では L/ZL と R/ZR を個別に入れ替えられ、画面表示も設定に
-追従します。終了するには **Select + Start** を2秒間長押しします。
+**FULL CONTROLS** で大きな前面タッチレイアウトへ切り替えられます。
+**SETTINGS** では前面の L/ZL・R/ZR 入れ替えと、背面左右の割り当てを個別に
+設定でき、画面表示も設定に合わせて変わります。終了するには **Select + Start**
+を2秒間長押しします。
 
 ### ビルド
 

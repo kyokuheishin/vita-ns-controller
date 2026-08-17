@@ -217,7 +217,7 @@ static volatile SceUID controller_app_pid = -1;
 static volatile uint32_t controller_heartbeat_time;
 static volatile uint32_t controller_vita_buttons;
 static volatile uint32_t controller_vita_sticks;
-static volatile uint8_t controller_touch_buttons;
+static volatile uint16_t controller_touch_buttons;
 static volatile unsigned int controller_input_sequence;
 static volatile int reconnect_requested;
 static volatile int reconnect_input_latched;
@@ -306,7 +306,7 @@ static int last_battery_percent;
 static int last_battery_charging;
 static uint32_t previous_vita_buttons;
 static uint32_t previous_vita_sticks;
-static uint8_t previous_touch_buttons;
+static uint16_t previous_touch_buttons;
 
 static void kick_active_control(void);
 static void publish_active_reconnect(uint8_t phase, uint16_t psm, int result,
@@ -414,7 +414,7 @@ int vitaNsPadSubmitInput(uint32_t buttons, uint32_t sticks,
 	SceUID pid = ksceKernelGetProcessId();
 	if (!is_controller_app(pid))
 		return -1;
-	uint8_t new_touch_buttons = (uint8_t)touch_buttons &
+	uint16_t new_touch_buttons = (uint16_t)touch_buttons &
 		VITA_NS_TOUCH_INPUT_MASK;
 	__sync_fetch_and_add(&controller_input_sequence, 1);
 	controller_vita_buttons = buttons;
@@ -1719,7 +1719,7 @@ static void update_controller_input(void)
 	uint16_t ry = PROCON_STICK_CENTER;
 	uint32_t raw = 0;
 	uint32_t sticks = 0x80808080U;
-	uint8_t touch_buttons = 0;
+	uint16_t touch_buttons = 0;
 	if (controller_app_active) {
 		unsigned int sequence;
 		for (;;) {
@@ -1786,6 +1786,14 @@ static void update_controller_input(void)
 			if (touch_zl)
 				mapped[PROCON_BUTTON_BYTE_LEFT] |= PROCON_LEFT_BUTTON_ZL;
 		}
+		if (touch_buttons & VITA_NS_TOUCH_BACK_LEFT)
+			mapped[PROCON_BUTTON_BYTE_LEFT] |=
+				(touch_buttons & VITA_NS_TOUCH_BACK_LEFT_ZL) ?
+				PROCON_LEFT_BUTTON_ZL : PROCON_LEFT_BUTTON_L;
+		if (touch_buttons & VITA_NS_TOUCH_BACK_RIGHT)
+			mapped[PROCON_BUTTON_BYTE_RIGHT] |=
+				(touch_buttons & VITA_NS_TOUCH_BACK_RIGHT_ZR) ?
+				PROCON_RIGHT_BUTTON_ZR : PROCON_RIGHT_BUTTON_R;
 		if (touch_buttons & VITA_NS_TOUCH_L3)
 			mapped[PROCON_BUTTON_BYTE_SHARED] |=
 				PROCON_SHARED_BUTTON_L_STICK;
@@ -1810,7 +1818,7 @@ static void update_controller_input(void)
 	if (raw != previous_vita_buttons ||
 	    stick_trace_changed(previous_vita_sticks, sticks) ||
 	    touch_buttons != previous_touch_buttons) {
-		uint8_t probe[13] = { 0x49,
+		uint8_t probe[14] = { 0x49,
 			mapped[PROCON_BUTTON_BYTE_RIGHT],
 			mapped[PROCON_BUTTON_BYTE_SHARED],
 			mapped[PROCON_BUTTON_BYTE_LEFT],
@@ -1818,7 +1826,7 @@ static void update_controller_input(void)
 			(uint8_t)(raw >> 16), (uint8_t)(raw >> 24),
 			(uint8_t)sticks, (uint8_t)(sticks >> 8),
 			(uint8_t)(sticks >> 16), (uint8_t)(sticks >> 24),
-			touch_buttons };
+			(uint8_t)touch_buttons, (uint8_t)(touch_buttons >> 8) };
 		publish(10, probe, sizeof(probe));
 		previous_vita_buttons = raw;
 		previous_vita_sticks = sticks;

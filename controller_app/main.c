@@ -33,13 +33,15 @@
 #define SETTINGS_FULL_Y 88
 #define SETTINGS_WIDTH 160
 #define SETTINGS_HEIGHT 52
-#define SETTINGS_TOGGLE_X 120
-#define SETTINGS_TOGGLE_WIDTH 720
-#define SETTINGS_TOGGLE_HEIGHT 88
-#define SETTINGS_LEFT_Y 130
-#define SETTINGS_RIGHT_Y 242
+#define SETTINGS_TOGGLE_X 60
+#define SETTINGS_TOGGLE_WIDTH 840
+#define SETTINGS_TOGGLE_HEIGHT 68
+#define SETTINGS_LEFT_Y 112
+#define SETTINGS_RIGHT_Y 188
+#define SETTINGS_BACK_LEFT_Y 264
+#define SETTINGS_BACK_RIGHT_Y 340
 #define SETTINGS_BACK_X 380
-#define SETTINGS_BACK_Y 382
+#define SETTINGS_BACK_Y 428
 #define SETTINGS_BACK_WIDTH 200
 #define SETTINGS_BACK_HEIGHT 64
 #define CONFIG_PATH "ux0:app/VITANSPAD/config.bin"
@@ -55,10 +57,12 @@ static void stop_input_sampling(void)
 {
 	sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT,
 		SCE_TOUCH_SAMPLING_STATE_STOP);
+	sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK,
+		SCE_TOUCH_SAMPLING_STATE_STOP);
 	vitaNsPadDisable();
 }
 
-static int read_options(const char *path, uint8_t *options)
+static int read_options(const char *path, uint16_t *options)
 {
 	uint32_t data[2] = { 0, 0 };
 	SceUID fd = sceIoOpen(path, SCE_O_RDONLY, 0);
@@ -68,11 +72,11 @@ static int read_options(const char *path, uint8_t *options)
 	sceIoClose(fd);
 	if (length != (int)sizeof(data) || data[0] != CONFIG_MAGIC)
 		return -1;
-	*options = (uint8_t)data[1] & VITA_NS_TOUCH_OPTION_MASK;
+	*options = (uint16_t)data[1] & VITA_NS_TOUCH_OPTION_MASK;
 	return 0;
 }
 
-static int save_options(uint8_t options)
+static int save_options(uint16_t options)
 {
 	uint32_t data[2] = { CONFIG_MAGIC, options & VITA_NS_TOUCH_OPTION_MASK };
 	SceUID fd = sceIoOpen(CONFIG_PATH,
@@ -86,9 +90,9 @@ static int save_options(uint8_t options)
 	return close_result;
 }
 
-static uint8_t load_options(void)
+static uint16_t load_options(void)
 {
-	uint8_t options = 0;
+	uint16_t options = 0;
 	if (read_options(CONFIG_PATH, &options) >= 0)
 		return options;
 	if (read_options(LEGACY_CONFIG_PATH, &options) >= 0) {
@@ -100,15 +104,27 @@ static uint8_t load_options(void)
 	return 0;
 }
 
-static uint8_t read_touch_buttons(SceTouchData *touch, int layout)
+static uint16_t read_touch_buttons(SceTouchData *touch, int layout)
 {
-	uint8_t buttons = 0;
+	uint16_t buttons = 0;
 	touch->reportNum = 0;
 	if (sceTouchPeek(SCE_TOUCH_PORT_FRONT, touch, 1) < 1)
 		return 0;
 	for (SceUInt32 i = 0; i < touch->reportNum && i < SCE_TOUCH_MAX_REPORT; i++)
 		buttons |= vita_ns_touch_button_for_layout(touch->report[i].x,
 			touch->report[i].y, layout);
+	return buttons;
+}
+
+static uint16_t read_back_touch_buttons(SceTouchData *touch)
+{
+	uint16_t buttons = 0;
+	touch->reportNum = 0;
+	if (sceTouchPeek(SCE_TOUCH_PORT_BACK, touch, 1) < 1)
+		return 0;
+	for (SceUInt32 i = 0; i < touch->reportNum && i < SCE_TOUCH_MAX_REPORT; i++)
+		buttons |= vita_ns_back_touch_button(touch->report[i].x,
+			touch->report[i].y);
 	return buttons;
 }
 
@@ -178,8 +194,8 @@ static void draw_indicator(vita2d_pgf *font, int x, int y,
 		pressed ? COLOR_TEXT : COLOR_MUTED, label);
 }
 
-static void draw_touch_zones(vita2d_pgf *font, uint8_t buttons, int layout,
-	uint8_t options)
+static void draw_touch_zones(vita2d_pgf *font, uint16_t buttons, int layout,
+	uint16_t options)
 {
 	static const struct {
 		const char *label;
@@ -240,7 +256,7 @@ static void draw_touch_zones(vita2d_pgf *font, uint8_t buttons, int layout,
 	for (int zone = 0; zone < VITA_NS_TOUCH_ZONE_COUNT; zone++) {
 		const int full = layout == VITA_NS_TOUCH_LAYOUT_FULL;
 		const char *label = full ? full_zones[zone].label : info_zones[zone].label;
-		uint8_t mask = full ? full_zones[zone].mask : info_zones[zone].mask;
+		uint16_t mask = full ? full_zones[zone].mask : info_zones[zone].mask;
 		if (mask == VITA_NS_TOUCH_ZL && (options & VITA_NS_TOUCH_SWAP_LEFT))
 			label = "L";
 		if (mask == VITA_NS_TOUCH_ZR && (options & VITA_NS_TOUCH_SWAP_RIGHT))
@@ -294,17 +310,17 @@ static void draw_setting_toggle(vita2d_pgf *font, int y,
 	vita2d_pgf_draw_text(font, SETTINGS_TOGGLE_X + 24, y + 34,
 		COLOR_TEXT, 0.86f, title);
 	vita2d_pgf_draw_text(font, SETTINGS_TOGGLE_X + 24, y + 65,
-		enabled ? COLOR_TEXT : COLOR_MUTED, 0.66f, description);
+		enabled ? COLOR_TEXT : COLOR_MUTED, 0.58f, description);
 	draw_centered(font, SETTINGS_TOGGLE_X + SETTINGS_TOGGLE_WIDTH - 112,
 		88, y + 50, 0.8f, COLOR_TEXT, enabled ? "ON" : "OFF");
 }
 
-static void draw_settings(vita2d_pgf *font, uint8_t options, int save_result)
+static void draw_settings(vita2d_pgf *font, uint16_t options, int save_result)
 {
 	vita2d_pgf_draw_text(font, 40, 50, COLOR_TEXT, 1.2f,
 		"Controller Mapping Settings");
 	vita2d_pgf_draw_text(font, 40, 88, COLOR_MUTED, 0.68f,
-		"Left and right swaps are independent and saved immediately.");
+		"Front and rear touch mappings are independent and saved immediately.");
 	draw_setting_toggle(font, SETTINGS_LEFT_Y, "L <-> ZL",
 		(options & VITA_NS_TOUCH_SWAP_LEFT) ?
 		"Vita L -> ZL    Touch ZL -> L" :
@@ -315,6 +331,14 @@ static void draw_settings(vita2d_pgf *font, uint8_t options, int save_result)
 		"Vita R -> ZR    Touch ZR -> R" :
 		"Vita R -> R     Touch ZR -> ZR",
 		options & VITA_NS_TOUCH_SWAP_RIGHT);
+	draw_setting_toggle(font, SETTINGS_BACK_LEFT_Y, "BACK LEFT -> ZL",
+		(options & VITA_NS_TOUCH_BACK_LEFT_ZL) ?
+		"Rear touch left -> ZL" : "Rear touch left -> L",
+		options & VITA_NS_TOUCH_BACK_LEFT_ZL);
+	draw_setting_toggle(font, SETTINGS_BACK_RIGHT_Y, "BACK RIGHT -> ZR",
+		(options & VITA_NS_TOUCH_BACK_RIGHT_ZR) ?
+		"Rear touch right -> ZR" : "Rear touch right -> R",
+		options & VITA_NS_TOUCH_BACK_RIGHT_ZR);
 	vita2d_draw_rectangle(SETTINGS_BACK_X, SETTINGS_BACK_Y,
 		SETTINGS_BACK_WIDTH, SETTINGS_BACK_HEIGHT, COLOR_BORDER);
 	vita2d_draw_rectangle(SETTINGS_BACK_X + 3, SETTINGS_BACK_Y + 3,
@@ -346,9 +370,9 @@ static void draw_pair_button(vita2d_pgf *font, unsigned int hold_frames,
 }
 
 static void draw_ui(vita2d_pgf *font, const SceCtrlData *pad,
-	uint8_t touch_buttons, unsigned int exit_frames, int heartbeat_result,
+	uint16_t touch_buttons, unsigned int exit_frames, int heartbeat_result,
 	unsigned int pair_hold_frames, int pair_queued, int layout,
-	int screen, uint8_t options, int save_result)
+	int screen, uint16_t options, int save_result)
 {
 	vita2d_clear_screen();
 	if (screen == APP_SCREEN_SETTINGS) {
@@ -403,7 +427,11 @@ static void draw_ui(vita2d_pgf *font, const SceCtrlData *pad,
 	else
 		vita2d_pgf_draw_text(font, 28, 222, COLOR_MUTED, 0.68f,
 			"Touch: ZL/ZR corners; L3/R3 corners; Capture | Home");
-	vita2d_pgf_draw_text(font, 28, 250, COLOR_MUTED, 0.65f,
+	vita2d_pgf_draw_textf(font, 28, 250, COLOR_MUTED, 0.65f,
+		"Rear touch: left -> %s   right -> %s",
+		(options & VITA_NS_TOUCH_BACK_LEFT_ZL) ? "ZL" : "L",
+		(options & VITA_NS_TOUCH_BACK_RIGHT_ZR) ? "ZR" : "R");
+	vita2d_pgf_draw_text(font, 28, 278, COLOR_MUTED, 0.65f,
 		"Hold Select + Start for 2 seconds to exit");
 	if (exit_frames) {
 		float progress = exit_frames >= 120 ? 1.0f : (float)exit_frames / 120.0f;
@@ -420,19 +448,23 @@ int main(void)
 {
 	SceCtrlData pad;
 	SceTouchData touch;
+	SceTouchData back_touch;
 	unsigned int exit_frames = 0;
 	unsigned int pair_hold_frames = 0;
 	int pair_queued = 0;
 	int layout = VITA_NS_TOUCH_LAYOUT_INFO;
 	int screen = APP_SCREEN_MAIN;
 	int ui_touch_latched = 0;
-	uint8_t options = load_options();
+	uint16_t options = load_options();
 	int save_result = 0;
 	memset(&pad, 0, sizeof(pad));
 	memset(&touch, 0, sizeof(touch));
+	memset(&back_touch, 0, sizeof(back_touch));
 
 	sceCtrlSetSamplingMode(SCE_CTRL_MODE_ANALOG_WIDE);
 	sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT,
+		SCE_TOUCH_SAMPLING_STATE_START);
+	sceTouchSetSamplingState(SCE_TOUCH_PORT_BACK,
 		SCE_TOUCH_SAMPLING_STATE_START);
 	if (vita2d_init() < 0) {
 		stop_input_sampling();
@@ -452,7 +484,8 @@ int main(void)
 			pad.buttons = 0;
 			pad.lx = pad.ly = pad.rx = pad.ry = 128;
 		}
-		uint8_t touch_buttons = read_touch_buttons(&touch, layout);
+		uint16_t touch_buttons = read_touch_buttons(&touch, layout) |
+			read_back_touch_buttons(&back_touch);
 		if (!touch.reportNum)
 			ui_touch_latched = 0;
 		if (!ui_touch_latched) {
@@ -466,6 +499,18 @@ int main(void)
 				    SETTINGS_RIGHT_Y, SETTINGS_TOGGLE_WIDTH,
 				    SETTINGS_TOGGLE_HEIGHT)) {
 					options ^= VITA_NS_TOUCH_SWAP_RIGHT;
+					save_result = save_options(options);
+					ui_touch_latched = 1;
+				} else if (touch_rect_active(&touch, SETTINGS_TOGGLE_X,
+				    SETTINGS_BACK_LEFT_Y, SETTINGS_TOGGLE_WIDTH,
+				    SETTINGS_TOGGLE_HEIGHT)) {
+					options ^= VITA_NS_TOUCH_BACK_LEFT_ZL;
+					save_result = save_options(options);
+					ui_touch_latched = 1;
+				} else if (touch_rect_active(&touch, SETTINGS_TOGGLE_X,
+				    SETTINGS_BACK_RIGHT_Y, SETTINGS_TOGGLE_WIDTH,
+				    SETTINGS_TOGGLE_HEIGHT)) {
+					options ^= VITA_NS_TOUCH_BACK_RIGHT_ZR;
 					save_result = save_options(options);
 					ui_touch_latched = 1;
 				} else if (touch_rect_active(&touch, SETTINGS_BACK_X,

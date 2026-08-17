@@ -115,6 +115,11 @@ int main(void)
 		VITA_NS_TOUCH_LAYOUT_FULL) == VITA_NS_TOUCH_ZR);
 	assert(vita_ns_touch_button_for_layout(1360, 608,
 		VITA_NS_TOUCH_LAYOUT_FULL) == VITA_NS_TOUCH_R3);
+	assert(vita_ns_back_touch_button(0, 0) == VITA_NS_TOUCH_BACK_LEFT);
+	assert(vita_ns_back_touch_button(959, 1087) == VITA_NS_TOUCH_BACK_LEFT);
+	assert(vita_ns_back_touch_button(960, 0) == VITA_NS_TOUCH_BACK_RIGHT);
+	assert(vita_ns_back_touch_button(1919, 1087) == VITA_NS_TOUCH_BACK_RIGHT);
+	assert(vita_ns_back_touch_button(1920, 500) == 0);
 	const uint8_t mac[6] = {1, 2, 3, 4, 5, 6};
 	ProconState state;
 	uint8_t reply[PROCON_REPLY_SIZE];

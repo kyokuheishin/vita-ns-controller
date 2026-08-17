@@ -2,14 +2,12 @@
 
 [English](#english) · [简体中文](#简体中文) · [日本語](#日本語)
 
-## Screenshots
+## Screenshot
 
-Add the screenshots later at the reserved paths below; the README will display
-them automatically.
+Add the main interface screenshot later at the reserved path below; the README
+will display it automatically.
 
-| LiveArea | Controller UI | Mapping settings |
-|:--:|:--:|:--:|
-| ![LiveArea](docs/screenshots/livearea.png) | ![Controller UI](docs/screenshots/controller-ui.png) | ![Mapping settings](docs/screenshots/settings.png) |
+![Controller UI](docs/screenshots/controller-ui.png)
 
 <a id="english"></a>
 

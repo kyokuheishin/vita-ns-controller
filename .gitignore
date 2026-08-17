@@ -1,0 +1,63 @@
+# CMake build trees and generated metadata
+/build/
+/build-*/
+/cmake-build-*/
+/**/build/
+/**/build-*/
+**/CMakeCache.txt
+**/CMakeFiles/
+**/CTestTestfile.cmake
+**/cmake_install.cmake
+**/compile_commands.json
+**/build.ninja
+**/.ninja_*
+
+# VitaSDK and compiler outputs
+*.a
+*.d
+*.elf
+*.map
+*.o
+*.obj
+*.out
+*.self
+*.skprx
+*.suprx
+*.velf
+*.vpk
+*_param.sfo
+*_stubs.yml
+*_stubs/
+eboot.bin
+
+# Local firmware dumps, captures, and diagnostic output
+/captures/
+/dumps/
+/firmware-dumps/
+/traces/
+/scebt-trace*
+/diagnostic/config.txt.*
+*.dmp
+*.dump
+*.log
+
+# Python tooling caches
+__pycache__/
+*.py[cod]
+.coverage
+.pytest_cache/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Local scratch files
+*.bak
+*.orig
+*.rej
+*.tmp

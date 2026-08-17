@@ -1,0 +1,101 @@
+#ifndef PROCON_H
+#define PROCON_H
+
+#include <stddef.h>
+#include <stdint.h>
+
+#define PROCON_REPLY_SIZE 50
+#define PROCON_INPUT_SIZE 50
+
+enum {
+	PROCON_HID_DATA_INPUT = 0xa1,
+	PROCON_HID_DATA_OUTPUT = 0xa2,
+	PROCON_OUTPUT_REPORT_SUBCOMMAND = 0x01,
+	PROCON_INPUT_REPORT_SUBCOMMAND_REPLY = 0x21,
+	PROCON_INPUT_REPORT_STANDARD = 0x30,
+	PROCON_OUTPUT_SUBCOMMAND_OFFSET = 11,
+	PROCON_OUTPUT_DATA_OFFSET = 12,
+	PROCON_REPLY_ACK_OFFSET = 14,
+	PROCON_REPLY_SUBCOMMAND_OFFSET = 15,
+	PROCON_REPLY_DATA_OFFSET = 16,
+	PROCON_BUTTON_BYTES = 3,
+	PROCON_INPUT_DATA_TYPE_OFFSET = 0,
+	PROCON_INPUT_REPORT_ID_OFFSET = 1,
+	PROCON_INPUT_TIMER_OFFSET = 2,
+	PROCON_INPUT_BATTERY_OFFSET = 3,
+	PROCON_INPUT_BUTTONS_OFFSET = 4,
+	PROCON_INPUT_LEFT_STICK_OFFSET = 7,
+	PROCON_INPUT_RIGHT_STICK_OFFSET = 10,
+	PROCON_INPUT_VIBRATOR_OFFSET = 13,
+	PROCON_STICK_CENTER = 0x0800,
+	PROCON_STICK_MAX = 0x0fff,
+};
+
+enum {
+	PROCON_BUTTON_BYTE_RIGHT = 0,
+	PROCON_BUTTON_BYTE_SHARED = 1,
+	PROCON_BUTTON_BYTE_LEFT = 2,
+};
+
+enum {
+	PROCON_RIGHT_BUTTON_Y = 1U << 0,
+	PROCON_RIGHT_BUTTON_X = 1U << 1,
+	PROCON_RIGHT_BUTTON_B = 1U << 2,
+	PROCON_RIGHT_BUTTON_A = 1U << 3,
+	PROCON_RIGHT_BUTTON_R = 1U << 6,
+	PROCON_RIGHT_BUTTON_ZR = 1U << 7,
+	PROCON_SHARED_BUTTON_MINUS = 1U << 0,
+	PROCON_SHARED_BUTTON_PLUS = 1U << 1,
+	PROCON_SHARED_BUTTON_R_STICK = 1U << 2,
+	PROCON_SHARED_BUTTON_L_STICK = 1U << 3,
+	PROCON_SHARED_BUTTON_HOME = 1U << 4,
+	PROCON_SHARED_BUTTON_CAPTURE = 1U << 5,
+	PROCON_LEFT_BUTTON_DOWN = 1U << 0,
+	PROCON_LEFT_BUTTON_UP = 1U << 1,
+	PROCON_LEFT_BUTTON_RIGHT = 1U << 2,
+	PROCON_LEFT_BUTTON_LEFT = 1U << 3,
+	PROCON_LEFT_BUTTON_L = 1U << 6,
+	PROCON_LEFT_BUTTON_ZL = 1U << 7,
+};
+
+enum {
+	PROCON_SUBCOMMAND_PAIRING = 0x01,
+	PROCON_SUBCOMMAND_DEVICE_INFO = 0x02,
+	PROCON_SUBCOMMAND_SET_INPUT_MODE = 0x03,
+	PROCON_SUBCOMMAND_TRIGGER_BUTTONS = 0x04,
+	PROCON_SUBCOMMAND_SET_SHIPMENT_MODE = 0x08,
+	PROCON_SUBCOMMAND_SPI_READ = 0x10,
+	PROCON_SUBCOMMAND_SET_NFC_IR_CONFIG = 0x21,
+	PROCON_SUBCOMMAND_SET_NFC_IR_STATE = 0x22,
+	PROCON_SUBCOMMAND_SET_PLAYER_LIGHTS = 0x30,
+	PROCON_SUBCOMMAND_SET_HOME_LIGHT = 0x38,
+	PROCON_SUBCOMMAND_ENABLE_IMU = 0x40,
+	PROCON_SUBCOMMAND_SET_IMU_SENSITIVITY = 0x41,
+	PROCON_SUBCOMMAND_ENABLE_VIBRATION = 0x48,
+};
+
+extern const uint8_t procon_hid_report_descriptor[];
+extern const size_t procon_hid_report_descriptor_size;
+
+typedef struct {
+	uint8_t mac[6];
+	uint8_t buttons[PROCON_BUTTON_BYTES];
+	uint16_t lx, ly, rx, ry;
+	uint8_t input_mode;
+	uint8_t player_lights;
+	uint8_t vibration_enabled;
+	uint8_t battery_level;
+} ProconState;
+
+void procon_init(ProconState *state, const uint8_t mac[6]);
+void procon_set_input(ProconState *state,
+		      const uint8_t buttons[PROCON_BUTTON_BYTES],
+		      uint16_t lx, uint16_t ly, uint16_t rx, uint16_t ry);
+void procon_set_battery(ProconState *state, int percent, int charging);
+size_t procon_handle_output(ProconState *state, const uint8_t *packet,
+			    size_t packet_size, uint8_t timer,
+			    uint8_t reply[PROCON_REPLY_SIZE]);
+size_t procon_make_input(const ProconState *state, uint8_t timer,
+			 uint8_t report[PROCON_INPUT_SIZE]);
+
+#endif

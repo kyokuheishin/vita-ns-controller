@@ -1,0 +1,100 @@
+#ifndef TOUCH_MAP_H
+#define TOUCH_MAP_H
+
+#include <stdint.h>
+
+enum VitaNsTouchButton {
+	VITA_NS_TOUCH_ZL      = 1U << 0,
+	VITA_NS_TOUCH_L3      = 1U << 1,
+	VITA_NS_TOUCH_HOME    = 1U << 2,
+	VITA_NS_TOUCH_CAPTURE = 1U << 3,
+	VITA_NS_TOUCH_R3      = 1U << 4,
+	VITA_NS_TOUCH_ZR      = 1U << 5,
+	VITA_NS_TOUCH_SWAP_LEFT  = 1U << 6,
+	VITA_NS_TOUCH_SWAP_RIGHT = 1U << 7,
+};
+
+#define VITA_NS_TOUCH_ZONE_COUNT 6
+#define VITA_NS_TOUCH_BUTTON_MASK ((1U << VITA_NS_TOUCH_ZONE_COUNT) - 1U)
+#define VITA_NS_TOUCH_OPTION_MASK \
+	(VITA_NS_TOUCH_SWAP_LEFT | VITA_NS_TOUCH_SWAP_RIGHT)
+#define VITA_NS_TOUCH_INPUT_MASK \
+	(VITA_NS_TOUCH_BUTTON_MASK | VITA_NS_TOUCH_OPTION_MASK)
+#define VITA_NS_TOUCH_PANEL_WIDTH 1920
+#define VITA_NS_TOUCH_PANEL_HEIGHT 1088
+#define VITA_NS_TOUCH_PANEL_Y 544
+#define VITA_NS_TOUCH_PANEL_MID_Y 816
+#define VITA_NS_TOUCH_PANEL_COLUMN_WIDTH 480
+#define VITA_NS_TOUCH_FULL_SIDE_WIDTH 560
+#define VITA_NS_TOUCH_FULL_CORNER_HEIGHT 480
+#define VITA_NS_TOUCH_FULL_BOTTOM_Y 608
+#define VITA_NS_TOUCH_FULL_RIGHT_X 1360
+#define VITA_NS_TOUCH_FULL_CAPTURE_X 620
+#define VITA_NS_TOUCH_FULL_HOME_X 980
+#define VITA_NS_TOUCH_FULL_CENTER_Y 688
+#define VITA_NS_TOUCH_FULL_CENTER_SIZE 320
+#define VITA_NS_TOUCH_SCREEN_WIDTH 960
+#define VITA_NS_TOUCH_SCREEN_HEIGHT 544
+#define VITA_NS_TOUCH_SCREEN_COLUMN_WIDTH 240
+#define VITA_NS_TOUCH_SCREEN_Y 272
+#define VITA_NS_TOUCH_SCREEN_ROW_HEIGHT 136
+
+enum VitaNsTouchLayout {
+	VITA_NS_TOUCH_LAYOUT_INFO = 0,
+	VITA_NS_TOUCH_LAYOUT_FULL = 1,
+};
+
+/* The front panel uses 1920x1088 coordinates.  In its lower half, the outer
+ * columns are split vertically for the trigger/stick buttons.  The two full-
+ * height center columns keep Capture to the left of Home. */
+static inline uint8_t vita_ns_touch_button_for_layout(int x, int y,
+	int layout)
+{
+	if (x < 0 || x >= VITA_NS_TOUCH_PANEL_WIDTH || y < 0 ||
+	    y >= VITA_NS_TOUCH_PANEL_HEIGHT)
+		return 0;
+	if (layout == VITA_NS_TOUCH_LAYOUT_FULL) {
+		if (x < VITA_NS_TOUCH_FULL_SIDE_WIDTH &&
+		    y < VITA_NS_TOUCH_FULL_CORNER_HEIGHT)
+			return VITA_NS_TOUCH_ZL;
+		if (x >= VITA_NS_TOUCH_FULL_RIGHT_X &&
+		    y < VITA_NS_TOUCH_FULL_CORNER_HEIGHT)
+			return VITA_NS_TOUCH_ZR;
+		if (x < VITA_NS_TOUCH_FULL_SIDE_WIDTH &&
+		    y >= VITA_NS_TOUCH_FULL_BOTTOM_Y)
+			return VITA_NS_TOUCH_L3;
+		if (x >= VITA_NS_TOUCH_FULL_RIGHT_X &&
+		    y >= VITA_NS_TOUCH_FULL_BOTTOM_Y)
+			return VITA_NS_TOUCH_R3;
+		if (x >= VITA_NS_TOUCH_FULL_CAPTURE_X &&
+		    x < VITA_NS_TOUCH_FULL_CAPTURE_X + VITA_NS_TOUCH_FULL_CENTER_SIZE &&
+		    y >= VITA_NS_TOUCH_FULL_CENTER_Y &&
+		    y < VITA_NS_TOUCH_FULL_CENTER_Y + VITA_NS_TOUCH_FULL_CENTER_SIZE)
+			return VITA_NS_TOUCH_CAPTURE;
+		if (x >= VITA_NS_TOUCH_FULL_HOME_X &&
+		    x < VITA_NS_TOUCH_FULL_HOME_X + VITA_NS_TOUCH_FULL_CENTER_SIZE &&
+		    y >= VITA_NS_TOUCH_FULL_CENTER_Y &&
+		    y < VITA_NS_TOUCH_FULL_CENTER_Y + VITA_NS_TOUCH_FULL_CENTER_SIZE)
+			return VITA_NS_TOUCH_HOME;
+		return 0;
+	}
+	if (y < VITA_NS_TOUCH_PANEL_Y)
+		return 0;
+	if (x < VITA_NS_TOUCH_PANEL_COLUMN_WIDTH)
+		return y < VITA_NS_TOUCH_PANEL_MID_Y ?
+			VITA_NS_TOUCH_ZL : VITA_NS_TOUCH_L3;
+	if (x < VITA_NS_TOUCH_PANEL_COLUMN_WIDTH * 2)
+		return VITA_NS_TOUCH_CAPTURE;
+	if (x < VITA_NS_TOUCH_PANEL_COLUMN_WIDTH * 3)
+		return VITA_NS_TOUCH_HOME;
+	return y < VITA_NS_TOUCH_PANEL_MID_Y ?
+		VITA_NS_TOUCH_ZR : VITA_NS_TOUCH_R3;
+}
+
+static inline uint8_t vita_ns_touch_button(int x, int y)
+{
+	return vita_ns_touch_button_for_layout(x, y,
+		VITA_NS_TOUCH_LAYOUT_INFO);
+}
+
+#endif

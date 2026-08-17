@@ -1,0 +1,17 @@
+scebt_probe:
+  attributes: 0
+  version:
+    major: 0
+    minor: 1
+  main:
+    start: module_start
+    stop: module_stop
+  libraries:
+    VitaNsPadForUser:
+      syscall: true
+      version: 1
+      functions:
+        - vitaNsPadSubmitInput
+        - vitaNsPadSubmitMotion
+        - vitaNsPadStartPairing
+        - vitaNsPadDisable

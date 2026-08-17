@@ -11,8 +11,18 @@ include("$ENV{VITASDK}/share/vita.cmake" REQUIRED)
 # kernel plugin under the controller product name.
 set(RELEASE_BASENAME vita_ns_controller)
 
-add_executable(${PROJECT_NAME} trace.c protocol/procon.c)
-target_include_directories(${PROJECT_NAME} PRIVATE protocol)
+add_executable(${PROJECT_NAME}
+  trace.c
+  kernel/diagnostic_trace.c
+  protocol/procon.c
+  storage/bond_record.c
+  storage/bond_state.c
+)
+target_include_directories(${PROJECT_NAME} PRIVATE
+  kernel
+  protocol
+  storage
+)
 target_compile_definitions(${PROJECT_NAME} PRIVATE __VITA_KERNEL__)
 target_compile_options(${PROJECT_NAME} PRIVATE
   -Wall -Wextra -Werror -O2 -std=gnu99 -fno-pic -fno-PIC

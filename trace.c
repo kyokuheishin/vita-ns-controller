@@ -9,46 +9,21 @@
 #include <stdint.h>
 #include <taihen.h>
 
+#include "bond_record.h"
+#include "bond_state.h"
+#include "diagnostic_trace.h"
 #include "motion_sample.h"
 #include "procon.h"
 #include "raw_l2cap.h"
+#include "scebt_fw360.h"
 #include "touch_map.h"
 
-#define SCEBT_NID 0xF56868B7
-#define HCI_EVENT_OFFSET 0x105E4
-#define ACL_EVENT_OFFSET 0x11418
-#define FIND_CONNECTION_OFFSET 0x11421
-#define FIND_CHANNEL_OFFSET 0x11545
-#define L2CAP_CONNECTION_RESPONSE_OFFSET 0x6349
-#define L2CAP_CONNECT_OFFSET 0x6421
-#define HID_CHANNEL_HANDLER_OFFSET 0x13459
-#define DISCONNECT_DIRECT_OFFSET 0x519
-#define DISCONNECT_CLEANUP_OFFSET 0xC21
-#define HID_DISCONNECT_OFFSET 0x19619
-#define HCI_COMMAND_OFFSET 0x10435
-#define HCI_TRANSPORT_ENQUEUE_OFFSET 0x1B811
-#define L2CAP_SEND_OFFSET 0x109ED
-#define L2CAP_RAW_FORMAT_OFFSET 0x1ED54
-#define HCI_CREATE_CONNECTION_FORMAT_OFFSET 0x1EC9C
-#define CONFIRM_USER_OFFSET 0x18DD
-#define CONNECT_REMOTE_OFFSET 0x1BF1
-#define LOCAL_NAME_OFFSET 0x1EFA8
-#define CLASS_MOVW_OFFSET 0xD710
-#define CLASS_SHIFT_OFFSET 0xD71C
-#define IO_CAPABILITY_OFFSET 0xD416
-#define AUTH_REQUIREMENTS_OFFSET 0xD41A
-#define INQUIRY_SCAN_OFFSET 0x1985
-#define SCAN_MASK_OFFSET 0x19EE
-#define SDP_DB_OFFSET 0x1F868
-#define SDP_AUDIO_SIZE 0x122
-#define PNP_IDS_OFFSET 0x1F9BA
-#define TRACE_CAPACITY 256
 #define TRACE_PATH "ux0:data/scebt-trace.txt"
 #define COMMAND_PATH "ux0:data/scebt-command.txt"
 #define PEER_PATH "ux0:data/vita-ns-peer.bin"
-#define PEER_RECORD_SIZE 12
+#define PEER_RECORD_SIZE VITA_NS_PEER_RECORD_SIZE
 #define LINK_KEY_PATH "ur0:tai/vita-ns-link-key.bin"
-#define LINK_KEY_RECORD_SIZE 32
+#define LINK_KEY_RECORD_SIZE VITA_NS_LINK_KEY_RECORD_SIZE
 #define CONTROLLER_TITLE_ID "VITANSPAD"
 #define CONTROLLER_HEARTBEAT_TIMEOUT_US 250000U
 #define PAIRING_DISCOVERABLE_TIMEOUT_US 60000000U
@@ -68,12 +43,6 @@
 #define SCAN_COMMAND_TIMEOUT_US 1000000U
 #define BATTERY_POLL_INTERVAL_US 2000000U
 #define ARRAY_SIZE(array) (sizeof(array) / sizeof((array)[0]))
-#define SCEBT_CONNECTION_ADDRESS_LOW_WORD 6U
-#define SCEBT_CONNECTION_ADDRESS_HIGH_WORD 7U
-#define SCEBT_CHANNEL_FLAGS_OFFSET 0x04U
-#define SCEBT_CHANNEL_PSM_OFFSET 0x34U
-#define SCEBT_CHANNEL_LOCAL_CID_OFFSET 0x36U
-#define SCEBT_CHANNEL_REMOTE_CID_OFFSET 0x38U
 
 enum {
 	HCI_EVENT_CONNECTION_COMPLETE = 0x03,
@@ -150,13 +119,6 @@ enum {
 	ACTIVE_RECONNECT_RAW_INIT_SCRIPT_REPLY_WAIT,
 };
 
-typedef struct {
-	volatile unsigned int sequence;
-	uint16_t length;
-	uint8_t type;
-	uint8_t data[32];
-} TraceEvent;
-
 typedef int (*HciCommand)(void *context, int opcode, const char *format, ...);
 typedef void (*HciTransportCompletion)(void *argument);
 typedef int (*HciTransportEnqueue)(int packet_type, const uint8_t *packet,
@@ -199,9 +161,7 @@ static SceUID scan_mask_uid = -1;
 static SceUID worker_uid = -1;
 static SceUID sender_uid = -1;
 static SceUID proc_event_uid = -1;
-static volatile unsigned int write_index;
 static volatile int stop_requested;
-static TraceEvent events[TRACE_CAPACITY];
 static HciCommand hci_command;
 static HciTransportEnqueue hci_transport_enqueue;
 static void *hci_context;
@@ -237,26 +197,10 @@ static void *deferred_hid_control_channel;
 static volatile int active_l2cap_connect_call;
 static volatile int keepalive_active;
 static volatile uint16_t switch_acl_handle;
-static volatile unsigned int switch_address_sequence;
-static uint32_t switch_address_low;
-static uint16_t switch_address_high;
-static volatile int switch_address_valid;
 static volatile int switch_address_save_pending;
 static uint32_t switch_address_save_attempted;
-static volatile unsigned int switch_link_key_sequence;
-static uint32_t switch_link_key_address_low;
-static uint16_t switch_link_key_address_high;
-static uint8_t switch_link_key[16];
-static uint8_t switch_link_key_type;
-static volatile int switch_link_key_valid;
 static volatile int switch_link_key_save_pending;
 static uint32_t switch_link_key_save_attempted;
-static volatile unsigned int pending_link_key_sequence;
-static uint32_t pending_link_key_address_low;
-static uint16_t pending_link_key_address_high;
-static uint8_t pending_link_key[16];
-static uint8_t pending_link_key_type;
-static volatile int pending_link_key_valid;
 static unsigned int pending_link_key_consumed;
 static volatile int input_send_ready;
 static volatile unsigned int hid_configured;
@@ -433,16 +377,7 @@ int _start(SceSize argc, const void *args) __attribute__((weak, alias("module_st
 
 static void publish(uint8_t type, const uint8_t *data, int length)
 {
-	unsigned int index = __sync_fetch_and_add(&write_index, 1);
-	TraceEvent *entry = &events[index % TRACE_CAPACITY];
-	unsigned int copy_length = length <= 0 ? 0U :
-		(length > (int)sizeof(entry->data) ? (unsigned int)sizeof(entry->data) : (unsigned int)length);
-	entry->type = type;
-	entry->length = length;
-	if (length > 0 && data)
-		memcpy(entry->data, data, copy_length);
-	__sync_synchronize();
-	entry->sequence = index + 1;
+	diagnostic_trace_publish(type, data, length);
 }
 
 static int is_controller_app(SceUID pid)
@@ -624,177 +559,6 @@ static const SceProcEventHandler controller_proc_handler = {
 	.switch_process = controller_proc_switch,
 };
 
-static int valid_peer_address(uint32_t low, uint16_t high)
-{
-	return (low || high) && !(low == UINT32_MAX && high == UINT16_MAX);
-}
-
-static int read_peer_address(uint32_t *low, uint16_t *high)
-{
-	for (int attempt = 0; attempt < 4; attempt++) {
-		unsigned int before = switch_address_sequence;
-		if (before & 1U)
-			continue;
-		__sync_synchronize();
-		uint32_t read_low = switch_address_low;
-		uint16_t read_high = switch_address_high;
-		int read_valid = switch_address_valid;
-		__sync_synchronize();
-		if (before == switch_address_sequence && read_valid &&
-		    valid_peer_address(read_low, read_high)) {
-			*low = read_low;
-			*high = read_high;
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static int peer_address_matches(uint32_t low, uint16_t high)
-{
-	uint32_t saved_low;
-	uint16_t saved_high;
-	return read_peer_address(&saved_low, &saved_high) &&
-		saved_low == low && saved_high == high;
-}
-
-static void set_peer_address(uint32_t low, uint16_t high)
-{
-	int valid = valid_peer_address(low, high);
-	__sync_fetch_and_add(&switch_address_sequence, 1);
-	switch_address_low = low;
-	switch_address_high = high;
-	switch_address_valid = valid;
-	__sync_synchronize();
-	__sync_fetch_and_add(&switch_address_sequence, 1);
-}
-
-static void set_link_key(uint32_t low, uint16_t high,
-	const uint8_t key[16], uint8_t key_type)
-{
-	__sync_fetch_and_add(&switch_link_key_sequence, 1);
-	switch_link_key_address_low = low;
-	switch_link_key_address_high = high;
-	memcpy(switch_link_key, key, sizeof(switch_link_key));
-	switch_link_key_type = key_type;
-	switch_link_key_valid = valid_peer_address(low, high);
-	__sync_synchronize();
-	__sync_fetch_and_add(&switch_link_key_sequence, 1);
-}
-
-static void clear_link_key(void)
-{
-	__sync_fetch_and_add(&switch_link_key_sequence, 1);
-	switch_link_key_address_low = 0;
-	switch_link_key_address_high = 0;
-	memset(switch_link_key, 0, sizeof(switch_link_key));
-	switch_link_key_type = 0;
-	switch_link_key_valid = 0;
-	__sync_synchronize();
-	__sync_fetch_and_add(&switch_link_key_sequence, 1);
-}
-
-/* HCI events may run on a different SceBt thread from the plugin worker.
- * Keep notification capture in its own single-writer slot; only the worker
- * mutates the persistent key snapshot read by hci_command_hook. */
-static void queue_link_key(uint32_t low, uint16_t high,
-	const uint8_t key[16], uint8_t key_type)
-{
-	__sync_fetch_and_add(&pending_link_key_sequence, 1);
-	pending_link_key_address_low = low;
-	pending_link_key_address_high = high;
-	memcpy(pending_link_key, key, sizeof(pending_link_key));
-	pending_link_key_type = key_type;
-	pending_link_key_valid = valid_peer_address(low, high);
-	__sync_synchronize();
-	__sync_fetch_and_add(&pending_link_key_sequence, 1);
-}
-
-static int read_pending_link_key(uint32_t *low, uint16_t *high,
-	uint8_t key[16], uint8_t *key_type, unsigned int *generation)
-{
-	for (int attempt = 0; attempt < 4; attempt++) {
-		unsigned int before = pending_link_key_sequence;
-		if (before & 1U)
-			continue;
-		__sync_synchronize();
-		uint32_t read_low = pending_link_key_address_low;
-		uint16_t read_high = pending_link_key_address_high;
-		uint8_t read_key[16];
-		memcpy(read_key, pending_link_key, sizeof(read_key));
-		uint8_t read_type = pending_link_key_type;
-		int read_valid = pending_link_key_valid;
-		__sync_synchronize();
-		if (before == pending_link_key_sequence && read_valid &&
-		    valid_peer_address(read_low, read_high)) {
-			*low = read_low;
-			*high = read_high;
-			memcpy(key, read_key, sizeof(read_key));
-			*key_type = read_type;
-			*generation = before;
-			memset(read_key, 0, sizeof(read_key));
-			return 1;
-		}
-		memset(read_key, 0, sizeof(read_key));
-	}
-	return 0;
-}
-
-static int read_link_key(uint32_t *low, uint16_t *high,
-	uint8_t key[16], uint8_t *key_type)
-{
-	for (int attempt = 0; attempt < 4; attempt++) {
-		unsigned int before = switch_link_key_sequence;
-		if (before & 1U)
-			continue;
-		__sync_synchronize();
-		uint32_t read_low = switch_link_key_address_low;
-		uint16_t read_high = switch_link_key_address_high;
-		uint8_t read_key[16];
-		memcpy(read_key, switch_link_key, sizeof(read_key));
-		uint8_t read_type = switch_link_key_type;
-		int read_valid = switch_link_key_valid;
-		__sync_synchronize();
-		if (before == switch_link_key_sequence && read_valid &&
-		    valid_peer_address(read_low, read_high)) {
-			*low = read_low;
-			*high = read_high;
-			memcpy(key, read_key, sizeof(read_key));
-			*key_type = read_type;
-			memset(read_key, 0, sizeof(read_key));
-			return 1;
-		}
-		memset(read_key, 0, sizeof(read_key));
-	}
-	return 0;
-}
-
-static int read_link_key_for_peer(uint32_t low, uint16_t high,
-	uint8_t key[16], uint8_t *key_type)
-{
-	uint32_t saved_low;
-	uint16_t saved_high;
-	if (!read_link_key(&saved_low, &saved_high, key, key_type))
-		return 0;
-	if (saved_low == low && saved_high == high)
-		return 1;
-	memset(key, 0, 16);
-	return 0;
-}
-
-static int has_saved_switch_bond(void)
-{
-	uint32_t low;
-	uint16_t high;
-	uint8_t key[16];
-	uint8_t key_type = 0;
-	if (!read_peer_address(&low, &high))
-		return 0;
-	int valid = read_link_key_for_peer(low, high, key, &key_type);
-	memset(key, 0, sizeof(key));
-	return valid;
-}
-
 static int hci_event_hook(void *context, const uint8_t *data, int length)
 {
 	int scan_write_complete = data && length >= 6 &&
@@ -830,14 +594,14 @@ static int hci_event_hook(void *context, const uint8_t *data, int length)
 	uint16_t request_address_high = link_key_request_event ?
 		data[6] | ((uint16_t)data[7] << 8) : 0;
 	int raw_link_key_request = link_key_request_event && raw_acl_reconnect &&
-		peer_address_matches(request_address_low, request_address_high);
+		bond_state_peer_matches(request_address_low, request_address_high);
 	int known_peer = connection_complete_event &&
-		peer_address_matches(event_address_low, event_address_high);
+		bond_state_peer_matches(event_address_low, event_address_high);
 	int explicit_peer_window = controller_app_active &&
 		(pairing_discoverable_active ||
 		 active_reconnect_state == ACTIVE_RECONNECT_PASSIVE_WAIT);
 	int switch_connection_complete = connection_complete_event && data[2] == 0 &&
-		valid_peer_address(event_address_low, event_address_high) &&
+		vita_ns_valid_peer_address(event_address_low, event_address_high) &&
 		(known_peer || explicit_peer_window);
 	int learned_peer = switch_connection_complete && !known_peer;
 	uint32_t link_key_address_low = link_key_notification_event ?
@@ -846,7 +610,7 @@ static int hci_event_hook(void *context, const uint8_t *data, int length)
 	uint16_t link_key_address_high = link_key_notification_event ?
 		data[6] | ((uint16_t)data[7] << 8) : 0;
 	int learned_link_key = link_key_notification_event &&
-		peer_address_matches(link_key_address_low, link_key_address_high);
+		bond_state_peer_matches(link_key_address_low, link_key_address_high);
 	int should_confirm = confirm_user && data && length >= 8 &&
 		data[0] == HCI_EVENT_USER_CONFIRMATION_REQUEST;
 	uint32_t confirmation_address_low = 0;
@@ -860,7 +624,7 @@ static int hci_event_hook(void *context, const uint8_t *data, int length)
 	 * next Link Key Request proves that its persistent lookup misses it.  Copy
 	 * only the current Switch peer here; disk I/O is deferred to the worker. */
 	if (learned_link_key)
-		queue_link_key(link_key_address_low, link_key_address_high,
+		bond_state_queue_link_key(link_key_address_low, link_key_address_high,
 			data + 8, data[24]);
 	if (read_bd_addr_complete) {
 		uint8_t mac[6] = { 0, 0, 0, 0, 0, 0 };
@@ -881,7 +645,7 @@ static int hci_event_hook(void *context, const uint8_t *data, int length)
 	}
 	if (switch_connection_complete) {
 		if (learned_peer)
-			set_peer_address(event_address_low, event_address_high);
+			bond_state_set_peer(event_address_low, event_address_high);
 		switch_acl_handle = data[3] | ((uint16_t)(data[4] & 0x0f) << 8);
 		active_reconnect_context = context;
 		last_switch_activity = ksceKernelGetSystemTimeLow();
@@ -1004,7 +768,7 @@ static int hci_event_hook(void *context, const uint8_t *data, int length)
 		uint8_t saved_key[16];
 		uint8_t saved_type = 0;
 		int reply_result = -1;
-		int found = read_link_key_for_peer(request_address_low,
+		int found = bond_state_read_link_key_for_peer(request_address_low,
 			request_address_high, saved_key, &saved_type);
 		if (found) {
 			uint64_t address = request_address_low |
@@ -1099,7 +863,7 @@ static int is_switch_connection(const void *connection)
 	uint32_t address_low;
 	uint16_t address_high;
 	const uint32_t *words = (const uint32_t *)connection;
-	return connection && read_peer_address(&address_low, &address_high) &&
+	return connection && bond_state_read_peer(&address_low, &address_high) &&
 		words[SCEBT_CONNECTION_ADDRESS_LOW_WORD] == address_low &&
 		(words[SCEBT_CONNECTION_ADDRESS_HIGH_WORD] & 0xffff) == address_high;
 }
@@ -1185,7 +949,7 @@ static int hci_command_hook(void *context, int opcode, const char *format,
 	uint8_t original_role_switch = (uint8_t)a6;
 	int role_switch_overridden = opcode == HCI_OPCODE_CREATE_CONNECTION &&
 		format == hci_create_connection_format &&
-		peer_address_matches(a1, (uint16_t)a2);
+		bond_state_peer_matches(a1, (uint16_t)a2);
 	if (role_switch_overridden)
 		a6 = 1;
 	uint8_t command_probe[10] = {
@@ -1207,7 +971,7 @@ static int hci_command_hook(void *context, int opcode, const char *format,
 		uint8_t saved_type = 0;
 		uint32_t address_low = a1;
 		uint16_t address_high = (uint16_t)a2;
-		if (read_link_key_for_peer(address_low, address_high,
+		if (bond_state_read_link_key_for_peer(address_low, address_high,
 		    saved_key, &saved_type)) {
 			uint64_t address = address_low |
 				((uint64_t)address_high << 32);
@@ -2281,7 +2045,7 @@ static void handle_reconnect_request(void)
 		 * that makes Change Grip/Order register the same Vita again.  Keep only
 		 * page scan enabled while giving the saved Switch an inbound window.
 		 * With no saved bond, retain the original first-pairing behavior. */
-		int bonded = has_saved_switch_bond();
+		int bonded = bond_state_has_saved_bond();
 		int scan_result = bonded ? set_scan_and_wait(0) :
 			force_discoverable_scan();
 		uint8_t scan_probe[4] = { 0x56, bonded ? 3 : 1,
@@ -2338,7 +2102,7 @@ static int connect_switch_peer(void)
 		return -1;
 	uint32_t address_low;
 	uint16_t address_high;
-	if (!read_peer_address(&address_low, &address_high))
+	if (!bond_state_read_peer(&address_low, &address_high))
 		return -2;
 	/* Do not call SceBt's connect_remote wrapper here.  It is a HID-host path:
 	 * after encryption it queries the Switch's SDP database and then asks to
@@ -2758,7 +2522,7 @@ static void handle_active_reconnect(void)
 		if (age >= RECONNECT_PASSIVE_WAIT_US) {
 			uint32_t address_low;
 			uint16_t address_high;
-			if (!read_peer_address(&address_low, &address_high)) {
+			if (!bond_state_read_peer(&address_low, &address_high)) {
 				/* With no learned peer there is nothing safe to page.  Keep the
 				 * already-enabled passive scan as a normal first-pairing window. */
 				active_reconnect_scan_active = 0;
@@ -3076,7 +2840,7 @@ static void handle_active_reconnect(void)
 		} else {
 			/* Never turn a failed bonded reconnect into a fresh registration.
 			 * NEW PAIR is the explicit path into inquiry discoverability. */
-			int bonded = has_saved_switch_bond();
+			int bonded = bond_state_has_saved_bond();
 			int result = bonded ? set_scan_and_wait(0) :
 				force_discoverable_scan();
 			if (!bonded && result >= 0) {
@@ -3288,48 +3052,6 @@ static int bounded_line_length(int length, size_t capacity)
 	return length;
 }
 
-static uint8_t peer_record_checksum(const uint8_t record[PEER_RECORD_SIZE])
-{
-	uint8_t checksum = 0xa5;
-	for (unsigned int i = 0; i < 10; i++)
-		checksum ^= record[i];
-	return checksum;
-}
-
-static void encode_peer_record(uint8_t record[PEER_RECORD_SIZE],
-	uint32_t low, uint16_t high)
-{
-	record[0] = 'V';
-	record[1] = 'N';
-	record[2] = 'S';
-	record[3] = 1;
-	record[4] = (uint8_t)low;
-	record[5] = (uint8_t)(low >> 8);
-	record[6] = (uint8_t)(low >> 16);
-	record[7] = (uint8_t)(low >> 24);
-	record[8] = (uint8_t)high;
-	record[9] = (uint8_t)(high >> 8);
-	record[10] = peer_record_checksum(record);
-	record[11] = (uint8_t)~record[10];
-}
-
-static int decode_peer_record(const uint8_t record[PEER_RECORD_SIZE],
-	uint32_t *low, uint16_t *high)
-{
-	if (record[0] != 'V' || record[1] != 'N' || record[2] != 'S' ||
-	    record[3] != 1 || record[10] != peer_record_checksum(record) ||
-	    record[11] != (uint8_t)~record[10])
-		return -1;
-	uint32_t decoded_low = record[4] | ((uint32_t)record[5] << 8) |
-		((uint32_t)record[6] << 16) | ((uint32_t)record[7] << 24);
-	uint16_t decoded_high = record[8] | ((uint16_t)record[9] << 8);
-	if (!valid_peer_address(decoded_low, decoded_high))
-		return -2;
-	*low = decoded_low;
-	*high = decoded_high;
-	return 0;
-}
-
 static void publish_peer_storage(uint8_t phase, int result,
 	uint32_t low, uint16_t high)
 {
@@ -3352,10 +3074,10 @@ static int load_peer_address(void)
 		return length < 0 ? length : -1;
 	uint32_t low;
 	uint16_t high;
-	int result = decode_peer_record(record, &low, &high);
+	int result = vita_ns_decode_peer_record(record, &low, &high);
 	if (result < 0)
 		return result;
-	set_peer_address(low, high);
+	bond_state_set_peer(low, high);
 	publish_peer_storage(1, 0, low, high);
 	return 0;
 }
@@ -3371,12 +3093,12 @@ static void handle_peer_address_save(void)
 	switch_address_save_attempted = now;
 	uint32_t low;
 	uint16_t high;
-	if (!read_peer_address(&low, &high)) {
+	if (!bond_state_read_peer(&low, &high)) {
 		switch_address_save_pending = 0;
 		return;
 	}
 	uint8_t record[PEER_RECORD_SIZE];
-	encode_peer_record(record, low, high);
+	vita_ns_encode_peer_record(record, low, high);
 	SceUID fd = ksceIoOpen(PEER_PATH,
 		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
 	int result = fd;
@@ -3388,67 +3110,9 @@ static void handle_peer_address_save(void)
 		else if (result >= 0)
 			result = -1;
 	}
-	if (result >= 0 && peer_address_matches(low, high))
+	if (result >= 0 && bond_state_peer_matches(low, high))
 		switch_address_save_pending = 0;
 	publish_peer_storage(2, result, low, high);
-}
-
-static uint32_t link_key_record_checksum(
-	const uint8_t record[LINK_KEY_RECORD_SIZE])
-{
-	uint32_t checksum = 2166136261U;
-	for (unsigned int i = 0; i < LINK_KEY_RECORD_SIZE - 4; i++) {
-		checksum ^= record[i];
-		checksum *= 16777619U;
-	}
-	return checksum;
-}
-
-static void encode_link_key_record(uint8_t record[LINK_KEY_RECORD_SIZE],
-	uint32_t low, uint16_t high, const uint8_t key[16], uint8_t key_type)
-{
-	record[0] = 'V';
-	record[1] = 'N';
-	record[2] = 'K';
-	record[3] = 1;
-	record[4] = (uint8_t)low;
-	record[5] = (uint8_t)(low >> 8);
-	record[6] = (uint8_t)(low >> 16);
-	record[7] = (uint8_t)(low >> 24);
-	record[8] = (uint8_t)high;
-	record[9] = (uint8_t)(high >> 8);
-	record[10] = key_type;
-	record[11] = 0;
-	memcpy(record + 12, key, 16);
-	uint32_t checksum = link_key_record_checksum(record);
-	record[28] = (uint8_t)checksum;
-	record[29] = (uint8_t)(checksum >> 8);
-	record[30] = (uint8_t)(checksum >> 16);
-	record[31] = (uint8_t)(checksum >> 24);
-}
-
-static int decode_link_key_record(
-	const uint8_t record[LINK_KEY_RECORD_SIZE], uint32_t *low,
-	uint16_t *high, uint8_t key[16], uint8_t *key_type)
-{
-	uint32_t stored_checksum = record[28] |
-		((uint32_t)record[29] << 8) |
-		((uint32_t)record[30] << 16) |
-		((uint32_t)record[31] << 24);
-	if (record[0] != 'V' || record[1] != 'N' || record[2] != 'K' ||
-	    record[3] != 1 || record[11] != 0 ||
-	    stored_checksum != link_key_record_checksum(record))
-		return -1;
-	uint32_t decoded_low = record[4] | ((uint32_t)record[5] << 8) |
-		((uint32_t)record[6] << 16) | ((uint32_t)record[7] << 24);
-	uint16_t decoded_high = record[8] | ((uint16_t)record[9] << 8);
-	if (!valid_peer_address(decoded_low, decoded_high))
-		return -2;
-	*low = decoded_low;
-	*high = decoded_high;
-	memcpy(key, record + 12, 16);
-	*key_type = record[10];
-	return 0;
 }
 
 static void publish_link_key_storage(uint8_t phase, int result,
@@ -3477,22 +3141,23 @@ static int load_link_key(void)
 	uint16_t high;
 	uint8_t key[16];
 	uint8_t key_type;
-	int result = decode_link_key_record(record, &low, &high, key, &key_type);
+	int result = vita_ns_decode_link_key_record(record, &low, &high, key,
+		&key_type);
 	memset(record, 0, sizeof(record));
 	if (result < 0)
 		return result;
 	uint32_t peer_low;
 	uint16_t peer_high;
-	if (read_peer_address(&peer_low, &peer_high)) {
+	if (bond_state_read_peer(&peer_low, &peer_high)) {
 		if (peer_low != low || peer_high != high) {
 			memset(key, 0, sizeof(key));
 			return -3;
 		}
 	} else {
-		set_peer_address(low, high);
+		bond_state_set_peer(low, high);
 		switch_address_save_pending = 1;
 	}
-	set_link_key(low, high, key, key_type);
+	bond_state_set_link_key(low, high, key, key_type);
 	memset(key, 0, sizeof(key));
 	publish_link_key_storage(2, 0, low, high, key_type);
 	return 0;
@@ -3505,13 +3170,14 @@ static void handle_pending_link_key(void)
 	uint8_t key[16];
 	uint8_t key_type;
 	unsigned int generation;
-	if (!read_pending_link_key(&low, &high, key, &key_type, &generation))
+	if (!bond_state_read_pending_link_key(&low, &high, key, &key_type,
+	    &generation))
 		return;
 	if (generation == pending_link_key_consumed) {
 		memset(key, 0, sizeof(key));
 		return;
 	}
-	set_link_key(low, high, key, key_type);
+	bond_state_set_link_key(low, high, key, key_type);
 	pending_link_key_consumed = generation;
 	switch_link_key_save_pending = 1;
 	switch_link_key_save_attempted = 0;
@@ -3532,12 +3198,12 @@ static void handle_link_key_save(void)
 	uint16_t high;
 	uint8_t key[16];
 	uint8_t key_type;
-	if (!read_link_key(&low, &high, key, &key_type)) {
+	if (!bond_state_read_link_key(&low, &high, key, &key_type)) {
 		switch_link_key_save_pending = 0;
 		return;
 	}
 	uint8_t record[LINK_KEY_RECORD_SIZE];
-	encode_link_key_record(record, low, high, key, key_type);
+	vita_ns_encode_link_key_record(record, low, high, key, key_type);
 	SceUID fd = ksceIoOpen(LINK_KEY_PATH,
 		SCE_O_WRONLY | SCE_O_CREAT | SCE_O_TRUNC, 0666);
 	int result = fd;
@@ -3555,7 +3221,7 @@ static void handle_link_key_save(void)
 		uint16_t current_high;
 		uint8_t current_key[16];
 		uint8_t current_type;
-		if (read_link_key(&current_low, &current_high,
+		if (bond_state_read_link_key(&current_low, &current_high,
 		    current_key, &current_type) && current_low == low &&
 		    current_high == high && current_type == key_type &&
 		    !memcmp(current_key, key, sizeof(key)))
@@ -3616,12 +3282,12 @@ static void handle_command(void)
 		 * six bytes are emitted.  Delete_All_Flag=0 limits this to the Switch. */
 		uint32_t address_low = 0;
 		uint16_t address_high = 0;
-		int have_peer = read_peer_address(&address_low, &address_high);
+		int have_peer = bond_state_read_peer(&address_low, &address_high);
 		const uint64_t switch_address = have_peer ? address_low |
 			((uint64_t)address_high << 32) : 0;
 		int result = have_peer ? hci_command(hci_context, 0x0C12,
 			hci_delete_key_format, switch_address, 0) : -1;
-		clear_link_key();
+		bond_state_clear_link_key();
 		switch_link_key_save_pending = 0;
 		switch_link_key_save_attempted = 0;
 		int file_result = ksceIoRemove(LINK_KEY_PATH);
@@ -3661,13 +3327,13 @@ static int trace_worker(SceSize argc, void *args)
 	int link_key_load_result = load_link_key();
 	uint32_t peer_low = 0;
 	uint16_t peer_high = 0;
-	int peer_valid = read_peer_address(&peer_low, &peer_high);
+	int peer_valid = bond_state_read_peer(&peer_low, &peer_high);
 	uint8_t loaded_key[16];
 	uint8_t loaded_key_type = 0;
 	uint32_t loaded_key_low = 0;
 	uint16_t loaded_key_high = 0;
-	int link_key_valid = read_link_key(&loaded_key_low, &loaded_key_high,
-		loaded_key, &loaded_key_type);
+	int link_key_valid = bond_state_read_link_key(&loaded_key_low,
+		&loaded_key_high, loaded_key, &loaded_key_type);
 	memset(loaded_key, 0, sizeof(loaded_key));
 	int peer_line_length = snprintf(line, sizeof(line),
 		"peer_load=0x%08X valid=%d address=%02X:%02X:%02X:%02X:%02X:%02X "
@@ -3887,7 +3553,8 @@ static int trace_worker(SceSize argc, void *args)
 		handle_reconnect_request();
 		handle_active_reconnect();
 		send_input();
-		TraceEvent *entry = &events[read_index % TRACE_CAPACITY];
+		const DiagnosticTraceEvent *entry =
+			diagnostic_trace_event(read_index);
 		unsigned int available_sequence = entry->sequence;
 		if (available_sequence > read_index + 1) {
 			int n = snprintf(line, sizeof(line),
@@ -3921,6 +3588,7 @@ int module_start(SceSize argc, const void *args)
 {
 	(void)argc;
 	(void)args;
+	diagnostic_trace_reset();
 	stop_requested = 0;
 	controller_app_active = 0;
 	controller_app_pid = -1;
@@ -3932,26 +3600,11 @@ int module_start(SceSize argc, const void *args)
 	input_send_ready = 0;
 	l2cap_response_pending = 0;
 	switch_acl_handle = 0;
-	switch_address_sequence = 0;
-	switch_address_low = 0;
-	switch_address_high = 0;
-	switch_address_valid = 0;
+	bond_state_reset();
 	switch_address_save_pending = 0;
 	switch_address_save_attempted = 0;
-	switch_link_key_sequence = 0;
-	switch_link_key_address_low = 0;
-	switch_link_key_address_high = 0;
-	memset(switch_link_key, 0, sizeof(switch_link_key));
-	switch_link_key_type = 0;
-	switch_link_key_valid = 0;
 	switch_link_key_save_pending = 0;
 	switch_link_key_save_attempted = 0;
-	pending_link_key_sequence = 0;
-	pending_link_key_address_low = 0;
-	pending_link_key_address_high = 0;
-	memset(pending_link_key, 0, sizeof(pending_link_key));
-	pending_link_key_type = 0;
-	pending_link_key_valid = 0;
 	pending_link_key_consumed = 0;
 	active_reconnect_state = ACTIVE_RECONNECT_IDLE;
 	active_reconnect_attempts = 0;

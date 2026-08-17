@@ -37,18 +37,28 @@ Bluetooth hardware; no Linux relay and no modified Switch are required.
 Requirements: a hacked PS Vita on firmware 3.60 with taiHEN, VitaShell, and a
 Nintendo Switch or Switch 2.
 
-1. Copy `vita_ns_controller.skprx` to `ur0:tai/`.
-2. Add it at the end of the existing `*KERNEL` section in
-   `ur0:tai/config.txt`:
+1. Copy `vita_ns_controller.skprx` to a taiHEN plugin directory, normally
+   `ur0:tai/`.
+2. Edit the config file that taiHEN actually uses. If `ux0:tai/config.txt`
+   exists, it takes priority; otherwise edit `ur0:tai/config.txt`.
+3. Find the existing `*KERNEL` section and add **only the plugin path** before
+   the next section whose name starts with `*`. Do not add a second `*KERNEL`
+   header. For example:
 
    ```text
    *KERNEL
+   ur0:tai/storagemgr.skprx
    ur0:tai/vita_ns_controller.skprx
+
+   *main
+   ur0:tai/henkaku.suprx
    ```
 
-3. Install `vita_ns_controller.vpk` with VitaShell.
-4. Reboot the Vita.
-5. Launch **Vita NS Controller** from LiveArea.
+   The config file and plugin file do not have to be on the same partition;
+   the path in this line must match the plugin's actual location.
+4. Install `vita_ns_controller.vpk` with VitaShell.
+5. Reboot the Vita.
+6. Launch **Vita NS Controller** from LiveArea.
 
 When upgrading from an earlier development build, remove the old
 `ur0:tai/scebt_probe.skprx` entry. Never load both plugin filenames at once.
@@ -141,17 +151,27 @@ Nintendo Switch 手柄，不需要 Linux 中继，也不要求破解 Switch。
 需要：运行 3.60 系统且已启用 taiHEN 的 PS Vita、VitaShell，以及 Nintendo
 Switch 或 Switch 2。
 
-1. 将 `vita_ns_controller.skprx` 复制到 `ur0:tai/`。
-2. 在 `ur0:tai/config.txt` 现有的 `*KERNEL` 段末尾加入：
+1. 将 `vita_ns_controller.skprx` 复制到 taiHEN 插件目录，通常为
+   `ur0:tai/`。
+2. 编辑 taiHEN 实际使用的配置文件。如果存在 `ux0:tai/config.txt`，它的
+   优先级高于 `ur0:tai/config.txt`；否则编辑后者。
+3. 找到现有的 `*KERNEL` 段，只把**插件路径这一行**加入到下一个以 `*` 开头的
+   配置段之前。不要再添加一个 `*KERNEL` 段头。例如：
 
    ```text
    *KERNEL
+   ur0:tai/storagemgr.skprx
    ur0:tai/vita_ns_controller.skprx
+
+   *main
+   ur0:tai/henkaku.suprx
    ```
 
-3. 使用 VitaShell 安装 `vita_ns_controller.vpk`。
-4. 重启 Vita。
-5. 从 LiveArea 启动 **Vita NS Controller**。
+   配置文件和插件文件不必位于同一分区；这里填写的路径必须与插件的实际位置
+   一致。
+4. 使用 VitaShell 安装 `vita_ns_controller.vpk`。
+5. 重启 Vita。
+6. 从 LiveArea 启动 **Vita NS Controller**。
 
 从早期开发版升级时，请删除旧的
 `ur0:tai/scebt_probe.skprx` 配置项，不能同时加载两个文件名。若插件导致
@@ -242,17 +262,29 @@ Bluetooth コントローラーとして動作させます。Vita 内蔵 Bluetoo
 必要なもの：taiHEN を導入したシステムソフトウェア 3.60 の PS Vita、
 VitaShell、Nintendo Switch または Switch 2。
 
-1. `vita_ns_controller.skprx` を `ur0:tai/` にコピーします。
-2. `ur0:tai/config.txt` の既存の `*KERNEL` セクション末尾に追加します。
+1. `vita_ns_controller.skprx` を taiHEN プラグインディレクトリ（通常は
+   `ur0:tai/`）にコピーします。
+2. taiHEN が実際に使用する設定ファイルを編集します。
+   `ux0:tai/config.txt` が存在する場合はそちらが優先され、存在しない場合は
+   `ur0:tai/config.txt` を編集します。
+3. 既存の `*KERNEL` セクションを探し、次の `*` で始まるセクションより前に
+   **プラグインのパスだけ**を追加します。2つ目の `*KERNEL` ヘッダーは追加
+   しないでください。例：
 
    ```text
    *KERNEL
+   ur0:tai/storagemgr.skprx
    ur0:tai/vita_ns_controller.skprx
+
+   *main
+   ur0:tai/henkaku.suprx
    ```
 
-3. VitaShell で `vita_ns_controller.vpk` をインストールします。
-4. Vita を再起動します。
-5. LiveArea から **Vita NS Controller** を起動します。
+   設定ファイルとプラグインファイルは同じパーティションに置く必要は
+   ありません。この行のパスは、プラグインの実際の配置先と一致させてください。
+4. VitaShell で `vita_ns_controller.vpk` をインストールします。
+5. Vita を再起動します。
+6. LiveArea から **Vita NS Controller** を起動します。
 
 以前の開発版から更新する場合は、古い
 `ur0:tai/scebt_probe.skprx` の行を削除してください。2つのファイル名を

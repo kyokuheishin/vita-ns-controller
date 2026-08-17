@@ -21,6 +21,13 @@ Bluetooth hardware; no Linux relay and no modified Switch are required.
 > This is experimental kernel software. The current plugin contains offsets for
 > **PS Vita system software 3.60 only**. Do not load it on another firmware.
 
+> [!CAUTION]
+> This plugin is incompatible with **every other plugin that hooks, modifies,
+> or otherwise changes Vita Bluetooth behavior**, including `ds4vita`. Never
+> load them at the same time. Remove or comment out the conflicting plugin's
+> entry in the active taiHEN config, then reboot the Vita before using Vita NS
+> Controller.
+
 ### Features and limitations
 
 - Initial registration through the Switch **Change Grip/Order** screen.
@@ -135,6 +142,11 @@ Nintendo Switch 手柄，不需要 Linux 中继，也不要求破解 Switch。
 > 本项目包含实验性内核插件。当前插件使用 **PS Vita 3.60 固件专用偏移**，
 > 请勿在其他系统版本上加载。
 
+> [!CAUTION]
+> 本插件与**所有会 hook、修改或以其他方式影响 Vita 蓝牙行为的插件**均不兼容，
+> 包括 `ds4vita`。切勿同时加载。使用 Vita NS Controller 前，请在实际生效的
+> taiHEN 配置中删除或注释掉冲突插件的配置项，然后重启 Vita。
+
 ### 功能与限制
 
 - 可在 Switch 的“更改握法/顺序”页面完成首次登记。
@@ -245,6 +257,13 @@ Bluetooth コントローラーとして動作させます。Vita 内蔵 Bluetoo
 > 本プロジェクトは実験的なカーネルプラグインを使用します。現在のプラグイン
 > は **PS Vita システムソフトウェア 3.60 専用のオフセット**を含みます。
 > ほかのバージョンでは読み込まないでください。
+
+> [!CAUTION]
+> 本プラグインは、`ds4vita` を含む、Vita の Bluetooth 動作をフック、変更、
+> またはその他の方法で干渉する**すべてのプラグインと互換性がありません**。
+> 同時に読み込まないでください。Vita NS Controller を使用する前に、実際に
+> 使用されている taiHEN 設定から競合プラグインの行を削除またはコメントアウトし、
+> Vita を再起動してください。
 
 ### 機能と制限
 

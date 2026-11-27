@@ -1,8 +1,13 @@
 #ifndef VITA_NS_SCEBT_FW360_H
 #define VITA_NS_SCEBT_FW360_H
 
-/* Internal SceBt layout for PS Vita system software 3.60 only. */
+/* Internal SceBt layout for PS Vita system software 3.60 and 3.65 (same
+ * offsets, verified against a 3.65 SceBt dump; only the module NID differs). */
+#ifdef SCEBT_FW360
 #define SCEBT_NID 0xF56868B7
+#else
+#define SCEBT_NID 0x67E0C2EB /* 3.65 */
+#endif
 
 #define HCI_EVENT_OFFSET 0x105E4
 #define ACL_EVENT_OFFSET 0x11418

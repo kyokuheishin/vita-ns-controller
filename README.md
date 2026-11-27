@@ -17,8 +17,10 @@ for Nintendo Switch. It communicates directly through the Vita's built-in
 Bluetooth hardware; no Linux relay and no modified Switch are required.
 
 > [!WARNING]
-> This is experimental kernel software. The current plugin contains offsets for
-> **PS Vita system software 3.60 only**. Do not load it on another firmware.
+> This is experimental kernel software. The plugin contains SceBt offsets for
+> **PS Vita system software 3.60 and 3.65 only**, and each build targets one of
+> them (default 3.65, see [Building](#building)). The plugin refuses to patch
+> SceBt when the module NID does not match. Do not load it on another firmware.
 
 > [!CAUTION]
 > This plugin is incompatible with **every other plugin that hooks, modifies,
@@ -36,11 +38,12 @@ Bluetooth hardware; no Linux relay and no modified Switch are required.
 - Independent L/ZL and R/ZR mapping options.
 - The Vita application must remain in the foreground.
 - Motion/gyroscope forwarding is not currently enabled.
-- Hardware-tested on a PS Vita running 3.60 and a Nintendo Switch 2.
+- Hardware-tested on PS Vita 3.60 and 3.65 (Enso) with a Nintendo Switch 2.
+- Bluetooth must be enabled in Vita **Settings → Devices → Bluetooth Devices**.
 
 ### Installation
 
-Requirements: a hacked PS Vita on firmware 3.60 with taiHEN, VitaShell, and a
+Requirements: a hacked PS Vita on firmware 3.60 or 3.65 with taiHEN, VitaShell, and a
 Nintendo Switch or Switch 2.
 
 1. Copy `vita_ns_controller.skprx` to a taiHEN plugin directory, normally
@@ -100,7 +103,8 @@ Hold **Select + Start** for two seconds to exit.
 
 ### Building
 
-Install VitaSDK and vita2d, then run:
+Install VitaSDK and vita2d, then run (builds for 3.65; add `-DFW360=ON` to the
+first `cmake` line for 3.60):
 
 ```sh
 cmake -S . -B build
@@ -123,6 +127,10 @@ indexed LiveArea PNG files.
 ### Troubleshooting
 
 - **Kernel input gate: ERROR:** check the kernel plugin path and reboot.
+- **Firmware check:** HENkaku version spoofing changes the version shown in
+  Settings, not the real firmware. Build for the real one (3.60 or 3.65).
+- **`ux0:data/scebt-trace.txt` shows `wrong_nid=`:** the build does not match
+  the firmware. **`name=0x802F0B02`:** Vita Bluetooth is switched off.
 - **Old icon or LiveArea art:** close the LiveArea page and reboot once after
   installing the updated VPK; SceShell may retain content for the same Title ID.
 - **Reconnect fails:** keep the Vita application in the foreground and send one
@@ -138,7 +146,7 @@ Vita NS Controller 可以让已破解的 PlayStation Vita 通过内置蓝牙直�
 Nintendo Switch 手柄，不需要 Linux 中继，也不要求破解 Switch。
 
 > [!WARNING]
-> 本项目包含实验性内核插件。当前插件使用 **PS Vita 3.60 固件专用偏移**，
+> 本项目包含实验性内核插件。当前插件使用 **PS Vita 3.60 / 3.65 固件专用偏移**（默认构建 3.65，`-DFW360=ON` 构建 3.60），
 > 请勿在其他系统版本上加载。
 
 > [!CAUTION]
@@ -155,11 +163,11 @@ Nintendo Switch 手柄，不需要 Linux 中继，也不要求破解 Switch。
 - L/ZL 与 R/ZR 可分别交换映射。
 - Vita 应用必须保持在前台。
 - 当前没有启用陀螺仪/体感数据转发。
-- 已在 3.60 系统的 PS Vita 与 Nintendo Switch 2 上完成实机验证。
+- 已在 3.60 与 3.65 系统的 PS Vita 与 Nintendo Switch 2 上完成实机验证。
 
 ### 安装
 
-需要：运行 3.60 系统且已启用 taiHEN 的 PS Vita、VitaShell，以及 Nintendo
+需要：运行 3.60 或 3.65 系统且已启用 taiHEN 的 PS Vita、VitaShell，以及 Nintendo
 Switch 或 Switch 2。
 
 1. 将 `vita_ns_controller.skprx` 复制到 taiHEN 插件目录，通常为
@@ -254,7 +262,7 @@ Bluetooth コントローラーとして動作させます。Vita 内蔵 Bluetoo
 
 > [!WARNING]
 > 本プロジェクトは実験的なカーネルプラグインを使用します。現在のプラグイン
-> は **PS Vita システムソフトウェア 3.60 専用のオフセット**を含みます。
+> は **PS Vita システムソフトウェア 3.60 / 3.65 専用のオフセット**（既定は 3.65、`-DFW360=ON` で 3.60）を含みます。
 > ほかのバージョンでは読み込まないでください。
 
 > [!CAUTION]
@@ -273,11 +281,11 @@ Bluetooth コントローラーとして動作させます。Vita 内蔵 Bluetoo
 - L/ZL と R/ZR の割り当てを個別に入れ替えられます。
 - Vita アプリをフォアグラウンドで実行しておく必要があります。
 - モーション/ジャイロ転送は現在無効です。
-- システムソフトウェア 3.60 の PS Vita と Nintendo Switch 2 で実機確認済みです。
+- システムソフトウェア 3.60 / 3.65 の PS Vita と Nintendo Switch 2 で実機確認済みです。
 
 ### インストール
 
-必要なもの：taiHEN を導入したシステムソフトウェア 3.60 の PS Vita、
+必要なもの：taiHEN を導入したシステムソフトウェア 3.60 / 3.65 の PS Vita、
 VitaShell、Nintendo Switch または Switch 2。
 
 1. `vita_ns_controller.skprx` を taiHEN プラグインディレクトリ（通常は

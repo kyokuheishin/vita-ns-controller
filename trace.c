@@ -3409,8 +3409,10 @@ static int trace_worker(SceSize argc, void *args)
 			static const char create_connection_format[] = "621-21";
 			static const char address_format[] = "6";
 			static const char link_key_reply_format[] = "6#";
-			static const uint8_t hci_transport_enqueue_prologue[8] = {
-				0x2d,0xe9,0xf0,0x47,0x4a,0xf2,0x04,0x07,
+			/* push.w {r4-r10,lr} only: the next movw carries a relocated
+			 * absolute address that differs per load address/firmware. */
+			static const uint8_t hci_transport_enqueue_prologue[4] = {
+				0x2d,0xe9,0xf0,0x47,
 			};
 			static const uint8_t original_record_sizes[5] = {0x32, 0x33, 0x33, 0x3c, 0x4e};
 			static const uint16_t original_record_offsets[5] = {0, 0x32, 0x65, 0x98, 0xd4};

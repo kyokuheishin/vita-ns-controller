@@ -28,11 +28,20 @@ target_compile_options(${PROJECT_NAME} PRIVATE
   -Wall -Wextra -Werror -O2 -std=gnu99 -fno-pic -fno-PIC
 )
 target_link_options(${PROJECT_NAME} PRIVATE -nostdlib -Wl,-q)
+# SceBt layout is identical on 3.60 and 3.65; only the module NID and the
+# ForKernel import NIDs (changed in 3.63) differ.  Default target: 3.65.
+option(FW360 "Build for PS Vita 3.60 instead of 3.65" OFF)
+if(FW360)
+  target_compile_definitions(${PROJECT_NAME} PRIVATE SCEBT_FW360)
+  set(MODULEMGR_KERNEL_STUB SceModulemgrForKernel_stub)
+else()
+  set(MODULEMGR_KERNEL_STUB SceModulemgrForKernel_363_stub)
+endif()
 target_link_libraries(${PROJECT_NAME}
   taihenForKernel_stub
   SceIofilemgrForDriver_stub
   SceModulemgrForDriver_stub
-  SceModulemgrForKernel_stub
+  ${MODULEMGR_KERNEL_STUB}
   SceProcEventForDriver_stub
   ScePowerForDriver_stub
   SceSysclibForDriver_stub
